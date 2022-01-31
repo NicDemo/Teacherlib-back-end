@@ -1,0 +1,75 @@
+version: '3.2'
+services:
+
+  teacherlib:
+    image: paulborielabs/teacherlib-backend
+    container_name: teacherlib
+    restart: always
+    expose:
+      - '8080'
+    environment:
+      SPRING_DATASOURCE_URL: >-
+        jdbc:mysql://db:3306/mydatabase?allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&useSSL=false&useLegacyDatetimeCode=false&serverTimezone=UTC
+    command:
+      - ./wait-for-it.sh
+      - 'db:3306'
+      - '--timeout=30'
+      - '--'
+      - java
+      - '-jar'
+      - /app.jar
+    networks:
+      - app-network
+
+  frontend:
+    image: bunkerity/bunkerized-nginx
+    ports:
+      - '80:8080'
+      - '443:8443'
+    volumes:
+      - './server-confs:/server-confs:ro'
+      - './web-files:/www:ro'
+      - /home/zprojet/letsencrypt:/etc/letsencrypt #save certicate on disk
+    environment:
+      - SERVER_NAME=teacherlib.tk www.teacherlib.tk
+      - SERVE_FILES=yes
+      - DISABLE_DEFAULT_SERVER=no
+      - AUTO_LETS_ENCRYPT=yes
+      - REDIRECT_HTTP_TO_HTTPS=yes
+      - PROXY_REAL_IP=yes
+      - USE_LIMIT_REQ=no
+      - HTTP2=no
+      - USE_BAD_BEHAVIOR=no
+      - USE_MODSECURITY=no
+      - >-
+        FEATURE_POLICY=accelerometer 'none'; ambient-light-sensor 'none';
+        autoplay 'none'; camera 'none'; display-capture 'none'; document-domain
+        'none'; encrypted-media 'none'; fullscreen 'none'; geolocation 'none';
+        gyroscope 'none'; magnetometer 'none'; microphone 'none'; midi 'none';
+        payment 'none'; picture-in-picture 'none'; speaker 'none'; sync-xhr
+        'self'; usb 'none'; vibrate 'none'; vr 'none'
+      - >-
+        ALLOWED_METHODS=GET|POST|HEAD|PROPFIND|DELETE|PUT|MKCOL|MOVE|COPY|PROPPATCH|REPORT|OPTIONS
+    restart: always
+    networks:
+      - app-network
+
+  db:
+    image: 'mysql:latest'
+    container_name: db
+    restart: always
+    expose:
+      - '3306'
+    environment:
+      MYSQL_DATABASE: mydatabase
+      MYSQL_ROOT_PASSWORD: my-secret-pw
+    volumes:
+      - 'data:/var/lib/mysql'
+    networks:
+      - app-network
+    
+volumes:
+  data:
+networks:
+  app-network:
+    driver: bridge
